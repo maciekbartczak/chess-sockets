@@ -35,12 +35,12 @@ class Server():
             sock.sendall(self.board.fen().encode('utf-8'))
             Thread(target=self.on_client_connect, args=(sock,client)).start()
 
-
     def on_client_connect(self, socket, client):
         while True:
             msg = socket.recv(1024).decode('utf-8')
             logging.info(f'{client} > {msg}')
             try:
+                #null
                 move = chess.Move.from_uci(msg)
             except Exception as e:
                 logging.warning(e)
