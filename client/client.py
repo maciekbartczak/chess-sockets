@@ -11,7 +11,7 @@ WHITE = (255, 255, 255)
 GREY = (142, 142, 142)
 LIGHT = (252, 204, 116)
 DARK = (87, 58, 46)
-GREEN = (0,255,0)
+GREEN = (0, 255, 0)
 SQUARE_SIZE = 100
 
 pieces_names = {'r': 'blackRook', 'n': 'blackKnight', 'b': 'blackBishop', 'q': 'blackQueen', 'k': 'blackKing',
@@ -36,6 +36,8 @@ def receive_board_update():
     while True:
         board_fen = socket.recv(1024).decode('utf-8')
         board = chess.Board(board_fen)
+        if 'Black' in welcome_message:
+            board = board.transform(chess.flip_vertical)
         print(f'\n{board}')
         screen.fill(GREY)
         draw_board(screen)
@@ -46,7 +48,10 @@ def receive_board_update():
 def send_move(src_x, src_y, dst_x, dst_y):
     print(src_x, src_y, dst_x, dst_y)
     reversed_y = {7 : 1, 6 : 2, 5 : 3, 4 : 4, 3 : 5, 2 : 6, 1 : 7, 0 : 8}
-    src = f'{convert(src_x)}{reversed_y[src_y]}{convert(dst_x)}{reversed_y[dst_y]}'
+    if 'Black' in welcome_message:
+        src = f'{convert(src_x)}{src_y + 1}{convert(dst_x)}{dst_y + 1}'
+    else:
+        src = f'{convert(src_x)}{reversed_y[src_y]}{convert(dst_x)}{reversed_y[dst_y]}'
     print('sending ' + src)
     socket.send(src.encode('utf-8'))
 
@@ -74,6 +79,7 @@ def draw_pieces(screen):
                 screen.blit(piece_img[row[j]], (file * SQUARE_SIZE, i * SQUARE_SIZE))
             j += 1
             file += 1
+
 
 def mouse_to_board(x, y):
     board_x = int(x / SQUARE_SIZE)
@@ -106,6 +112,8 @@ screen = pg.display.set_mode((800, 800))
 socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 socket.connect((HOST, PORT))
 welcome_message = socket.recv(1024).decode('utf-8')
+if 'Black' in welcome_message:
+    board = board.transform(chess.flip_vertical)
 print(welcome_message)
 Thread(target=receive_board_update).start()
 
