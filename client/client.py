@@ -21,6 +21,7 @@ class Client():
                    'P': 'whitePawn'}
 
     def __init__(self):
+        self.color = None
         self.board = chess.Board()
         self.screen = None
         self.piece_imgs = self.load_pieces_imgs()
@@ -46,7 +47,7 @@ class Client():
         while True:
             board_fen = self.socket.recv(1024).decode('utf-8')
             self.board = chess.Board(board_fen)
-            if 'Black' in self.welcome_message:
+            if self.color == chess.BLACK:
                 self.board = self.board.transform(chess.flip_vertical)
             print(f'\n{self.board}')
             self.screen.fill(self.GREY)
@@ -56,13 +57,18 @@ class Client():
 
     def send_move(self, src_x, src_y, dst_x, dst_y):
         print(src_x, src_y, dst_x, dst_y)
-        reversed_y = {7: 1, 6: 2, 5: 3, 4: 4, 3: 5, 2: 6, 1: 7, 0: 8}
-        if 'Black' in self.welcome_message:
-            src = f'{self.convert(src_x)}{src_y + 1}{self.convert(dst_x)}{dst_y + 1}'
+
+        if self.color == chess.BLACK:
+            src = f'{self.x_to_name(src_x)}{src_y + 1}{self.x_to_name(dst_x)}{dst_y + 1}'
         else:
-            src = f'{self.convert(src_x)}{reversed_y[src_y]}{self.convert(dst_x)}{reversed_y[dst_y]}'
+            src = f'{self.x_to_name(src_x)}{self.reverse_y(src_y)}{self.x_to_name(dst_x)}{self.reverse_y(dst_y)}'
         print('sending ' + src)
         self.socket.send(src.encode('utf-8'))
+
+    @staticmethod
+    def reverse_y(y):
+        reversed_y = {7: 1, 6: 2, 5: 3, 4: 4, 3: 5, 2: 6, 1: 7, 0: 8}
+        return reversed_y[y]
 
     def draw_board(self, screen):
         light = False
@@ -90,11 +96,13 @@ class Client():
     def mouse_to_board(self, x, y):
         board_x = int(x / self.SQUARE_SIZE)
         board_y = int(y / self.SQUARE_SIZE)
-        print(board_x, board_y)
         return board_x, board_y
 
+    def board_to_square(self, x, y):
+        return chess.square(x, self.reverse_y(y) - 1)
+
     @staticmethod
-    def convert(n):
+    def x_to_name(n):
         if n == 0:
             return 'a'
         elif n == 1:
@@ -118,7 +126,8 @@ class Client():
         self.screen = pg.display.set_mode((800, 800))
         self.socket.connect((self.HOST, self.PORT))
         self.welcome_message = self.socket.recv(1024).decode('utf-8')
-        if 'Black' in self.welcome_message:
+        self.color = chess.BLACK if 'Black' in self.welcome_message else chess.WHITE
+        if self.color == chess.BLACK:
             self.board = self.board.transform(chess.flip_vertical)
         print(self.welcome_message)
         Thread(target=self.receive_board_update).start()
@@ -128,15 +137,23 @@ class Client():
             self.draw_pieces(self.screen)
             for event in pg.event.get():
                 if event.type == pg.MOUSEBUTTONDOWN:
-                    if not self.piece_selected:
+                    x, y = pg.mouse.get_pos()
+                    xx, yy = self.mouse_to_board(x, y)
+                    source_sq = self.board_to_square(xx, yy)
+                    source_piece = self.board.piece_at(source_sq)
+                    if source_piece is not None and not self.piece_selected:
                         self.piece_selected = True
-                        x, y = pg.mouse.get_pos()
                         self.selected_x, self.selected_y = self.mouse_to_board(x, y)
-                    else:
-                        x, y = pg.mouse.get_pos()
+                    elif self.piece_selected:
                         self.target_x, self.target_y = self.mouse_to_board(x, y)
-                        self.send_move(self.selected_x, self.selected_y, self.target_x, self.target_y)
-                        self.piece_selected = False
+                        if not (self.selected_x == self.target_x and self.selected_y == self.target_y):
+                            target_sq = self.board_to_square(self.target_x, self.target_y)
+                            target_piece = self.board.piece_at(target_sq)
+                            if target_piece is not None and target_piece.color == self.color:
+                                self.selected_x, self.selected_y = self.target_x, self.target_y
+                            else:
+                                self.send_move(self.selected_x, self.selected_y, self.target_x, self.target_y)
+                                self.piece_selected = False
                 if event.type == pg.QUIT:
                     pg.quit()
                     sys.exit()
