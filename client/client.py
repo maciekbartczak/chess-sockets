@@ -14,6 +14,8 @@ class Client():
     LIGHT = (252, 204, 116)
     DARK = (87, 58, 46)
     GREEN = (0, 255, 0)
+    VALID_DARK = (76, 153, 0)
+    VALID_LIGHT = (102, 204, 0)
     SQUARE_SIZE = 100
     PIECE_NAMES = {'r': 'blackRook', 'n': 'blackKnight', 'b': 'blackBishop', 'q': 'blackQueen', 'k': 'blackKing',
                    'p': 'blackPawn',
@@ -32,6 +34,7 @@ class Client():
         self.selected_y = -1
         self.target_x = -1
         self.target_y = -1
+        self.moves = []
 
     def load_pieces_imgs(self):
         piece_img = dict()
@@ -120,6 +123,16 @@ class Client():
         elif n == 7:
             return 'h'
 
+    def generate_moves(self):
+        self.moves.clear()
+        for square in chess.SQUARES:
+            try:
+                move = self.board.find_move(self.board_to_square(self.selected_x, self.selected_y), square)
+                print(move)
+                self.moves.append(move)
+            except Exception as e:
+                pass
+
     def run(self):
         pg.init()
         pg.display.set_caption('Chess')
@@ -141,9 +154,10 @@ class Client():
                     xx, yy = self.mouse_to_board(x, y)
                     source_sq = self.board_to_square(xx, yy)
                     source_piece = self.board.piece_at(source_sq)
-                    if source_piece is not None and not self.piece_selected:
+                    if source_piece is not None and source_piece.color == self.color and not self.piece_selected:
                         self.piece_selected = True
                         self.selected_x, self.selected_y = self.mouse_to_board(x, y)
+                        self.generate_moves()
                     elif self.piece_selected:
                         self.target_x, self.target_y = self.mouse_to_board(x, y)
                         if not (self.selected_x == self.target_x and self.selected_y == self.target_y):
@@ -151,6 +165,7 @@ class Client():
                             target_piece = self.board.piece_at(target_sq)
                             if target_piece is not None and target_piece.color == self.color:
                                 self.selected_x, self.selected_y = self.target_x, self.target_y
+                                self.generate_moves()
                             else:
                                 self.send_move(self.selected_x, self.selected_y, self.target_x, self.target_y)
                                 self.piece_selected = False
@@ -162,6 +177,16 @@ class Client():
                                (self.selected_x * self.SQUARE_SIZE + (self.SQUARE_SIZE / 2),
                                 self.selected_y * self.SQUARE_SIZE + (self.SQUARE_SIZE / 2)),
                                self.SQUARE_SIZE / 2, 5)
+                for move in self.moves:
+                    target = str(move)[-2:]
+                    try:
+                        target_sq = chess.parse_square(target)
+                        pg.draw.rect(self.screen, self.VALID_LIGHT if (chess.square_file(target_sq) + chess.square_rank(target_sq)) % 2 == 0 else self.VALID_DARK,
+                                     ((chess.square_file(target_sq) * self.SQUARE_SIZE),
+                                      ((self.reverse_y(chess.square_rank(target_sq)) - 1) * self.SQUARE_SIZE),
+                                      self.SQUARE_SIZE, self.SQUARE_SIZE))
+                    except Exception:
+                        pass
             pg.display.update()
 
 
