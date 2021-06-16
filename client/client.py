@@ -5,7 +5,7 @@ import pygame as pg
 import sys
 
 
-class Client():
+class Client:
     HOST = '127.0.0.1'
     PORT = 4321
     BLACK = (0, 0, 0)
@@ -14,6 +14,7 @@ class Client():
     LIGHT = (252, 204, 116)
     DARK = (87, 58, 46)
     GREEN = (0, 255, 0)
+    RED = (255, 0, 0)
     VALID_DARK = (76, 153, 0)
     VALID_LIGHT = (102, 204, 0)
     SQUARE_SIZE = 100
@@ -50,8 +51,6 @@ class Client():
         while True:
             board_fen = self.socket.recv(1024).decode('utf-8')
             self.board = chess.Board(board_fen)
-            if self.color == chess.BLACK:
-                self.board = self.board.transform(chess.flip_vertical)
             print(f'\n{self.board}')
             self.screen.fill(self.GREY)
             self.draw_board(self.screen)
@@ -60,11 +59,7 @@ class Client():
 
     def send_move(self, src_x, src_y, dst_x, dst_y):
         print(src_x, src_y, dst_x, dst_y)
-
-        if self.color == chess.BLACK:
-            src = f'{self.x_to_name(src_x)}{src_y + 1}{self.x_to_name(dst_x)}{dst_y + 1}'
-        else:
-            src = f'{self.x_to_name(src_x)}{self.reverse_y(src_y)}{self.x_to_name(dst_x)}{self.reverse_y(dst_y)}'
+        src = f'{self.x_to_name(src_x)}{self.reverse_y(src_y)}{self.x_to_name(dst_x)}{self.reverse_y(dst_y)}'
         print('sending ' + src)
         self.socket.send(src.encode('utf-8'))
 
@@ -140,8 +135,6 @@ class Client():
         self.socket.connect((self.HOST, self.PORT))
         self.welcome_message = self.socket.recv(1024).decode('utf-8')
         self.color = chess.BLACK if 'Black' in self.welcome_message else chess.WHITE
-        if self.color == chess.BLACK:
-            self.board = self.board.transform(chess.flip_vertical)
         print(self.welcome_message)
         Thread(target=self.receive_board_update).start()
         while True:
@@ -187,6 +180,34 @@ class Client():
                                       self.SQUARE_SIZE, self.SQUARE_SIZE))
                     except Exception:
                         pass
+
+            if self.board.is_checkmate():
+                if self.board.turn == chess.BLACK:
+                    print("Black got checkmated")
+                else:
+                    print("White got checkmated")
+                pg.quit()
+                sys.exit()
+
+            if self.board.is_stalemate():
+                print("Stalemate")
+                pg.quit()
+                sys.exit()
+
+            if self.board.is_insufficient_material():
+                print("Insufficient Material")
+                pg.quit()
+                sys.exit()
+
+            if self.board.is_check():
+                if self.board.turn == chess.WHITE:
+                    king = self.board.king(chess.WHITE)
+                else:
+                    king = self.board.king(chess.BLACK)
+                pg.draw.rect(self.screen, self.RED,
+                             ((chess.square_file(king) * self.SQUARE_SIZE),
+                              ((self.reverse_y(chess.square_rank(king)) - 1) * self.SQUARE_SIZE),
+                              self.SQUARE_SIZE, self.SQUARE_SIZE))
             pg.display.update()
 
 
