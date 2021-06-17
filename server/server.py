@@ -3,20 +3,28 @@ import socket
 from threading import Thread
 
 import chess
+import chess.variant
 
 
 class Server:
     HOST = '127.0.0.1'
     PORT = 4321
-
+    VARIANTS = {1 : 'Standard', 2 : 'Atomic', 3 : 'King of the Hill', 4 : 'Racing Kings'}
     def __init__(self):
         logging.basicConfig(level=logging.INFO)
         self.socket = None
         self.client_white = None
         self.client_black = None
-        self.board = chess.Board()
+        self.board = None
         self.turn = 'White'
-        pass
+        self.variant = None
+
+    def choose_variant(self):
+        for k, v in self.VARIANTS.items():
+            print(f'{k}. {v}')
+        choice = int(input('Choose variant: '))
+        self.board = chess.variant.find_variant(self.VARIANTS[choice])()
+        self.variant = self.VARIANTS[choice]
 
     def start(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -38,6 +46,7 @@ class Server:
                 logging.info('New client connected!')
                 client = 'White' if sock == self.client_white else 'Black'
                 sock.sendall(f'You play as {client}'.encode('utf-8'))
+                sock.sendall(f'{self.variant}'.encode('utf-8'))
                 sock.sendall(self.board.fen().encode('utf-8'))
                 Thread(target=self.on_client_connect, args=(sock, client)).start()
 
@@ -74,6 +83,7 @@ class Server:
 
 def main():
     server = Server()
+    server.choose_variant()
     server.start()
     server.listen()
 
