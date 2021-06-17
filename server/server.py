@@ -9,7 +9,8 @@ import chess.variant
 class Server:
     HOST = '127.0.0.1'
     PORT = 4321
-    VARIANTS = {1 : 'Standard', 2 : 'Atomic', 3 : 'King of the Hill', 4 : 'Racing Kings'}
+    VARIANTS = {1: 'Standard', 2: 'Atomic', 3: 'Racing Kings'}
+
     def __init__(self):
         logging.basicConfig(level=logging.INFO)
         self.socket = None
@@ -23,6 +24,8 @@ class Server:
         for k, v in self.VARIANTS.items():
             print(f'{k}. {v}')
         choice = int(input('Choose variant: '))
+        if choice < min(self.VARIANTS.keys()) or choice > max(self.VARIANTS.keys()):
+            choice = 1
         self.board = chess.variant.find_variant(self.VARIANTS[choice])()
         self.variant = self.VARIANTS[choice]
 
