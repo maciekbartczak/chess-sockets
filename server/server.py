@@ -1,9 +1,11 @@
-import socket
 import logging
+import socket
 from threading import Thread
+
 import chess
 
-class Server():
+
+class Server:
     HOST = '127.0.0.1'
     PORT = 4321
 
@@ -22,22 +24,29 @@ class Server():
         logging.info(f'Server running at {self.HOST}:{self.PORT}')
 
     def listen(self):
-        self.socket.listen(2)
+        self.socket.listen()
         while True:
             sock, addr = self.socket.accept()
-            if self.client_white is None :
-                self.client_white = sock
+            if self.client_white and self.client_black:
+                sock.sendall('Server is full'.encode('utf-8'))
+                sock.close()
             else:
-                self.client_black = sock
-            logging.info('New client connected!')
-            client = 'White' if sock == self.client_white else 'Black'
-            sock.sendall(f'You play as {client}'.encode('utf-8'))
-            sock.sendall(self.board.fen().encode('utf-8'))
-            Thread(target=self.on_client_connect, args=(sock,client)).start()
+                if self.client_white is None:
+                    self.client_white = sock
+                else:
+                    self.client_black = sock
+                logging.info('New client connected!')
+                client = 'White' if sock == self.client_white else 'Black'
+                sock.sendall(f'You play as {client}'.encode('utf-8'))
+                sock.sendall(self.board.fen().encode('utf-8'))
+                Thread(target=self.on_client_connect, args=(sock, client)).start()
 
     def on_client_connect(self, socket, client):
         while True:
-            msg = socket.recv(1024).decode('utf-8')
+            try:
+                msg = socket.recv(1024).decode('utf-8')
+            except Exception:
+                break
             logging.info(f'{client} > {msg}')
             try:
                 move = chess.Move.from_uci(msg)
@@ -53,7 +62,14 @@ class Server():
                 self.client_white.sendall(self.board.fen().encode('utf-8'))
             if self.client_black is not None:
                 self.client_black.sendall(self.board.fen().encode('utf-8'))
-        socket.close()
+        if socket == self.client_white:
+            logging.warning('White closed connection')
+            socket.close()
+            self.client_white = None
+        else:
+            logging.warning('Black closed connection')
+            socket.close()
+            self.client_black = None
 
 
 def main():
