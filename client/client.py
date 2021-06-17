@@ -3,6 +3,7 @@ from threading import Thread
 import chess
 import pygame as pg
 import sys
+import chess.variant
 
 
 class Client:
@@ -44,6 +45,7 @@ class Client:
         self.welcome_message_up = True
         self.font_turn = None
         self.server_full = False
+        self.variant = None
 
     def load_pieces_imgs(self):
         piece_img = dict()
@@ -157,6 +159,9 @@ class Client:
         self.screen = pg.display.set_mode((800, 850))
         self.socket.connect((self.HOST, self.PORT))
         self.welcome_message = self.socket.recv(1024).decode('utf-8')
+        self.variant = self.socket.recv(1024).decode('utf-8')
+        self.board = chess.variant.find_variant(str(self.variant))()
+        print(self.variant)
         if 'Server is full' in self.welcome_message:
             self.server_full = True
         else:
