@@ -222,6 +222,24 @@ class Client:
                     except Exception:
                         pass
 
+            if self.board.is_variant_loss():
+                self.game_end = True
+                if self.board.turn == chess.BLACK:
+                    self.msg = 'Black lost due to special variant'
+                else:
+                    self.msg = 'White lost due to special variant'
+
+            if self.board.is_variant_win():
+                self.game_end = True
+                if self.board.turn == chess.BLACK:
+                    self.msg = 'White lost due to special variant'
+                else:
+                    self.msg = 'Black lost due to special variant'
+
+            if self.board.is_variant_draw():
+                self.game_end = True
+                self.msg = 'Draw due to special variant'
+
             if self.board.is_checkmate():
                 self.game_end = True
                 if self.board.turn == chess.BLACK:
