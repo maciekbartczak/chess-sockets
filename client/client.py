@@ -18,6 +18,8 @@ class Client:
     VALID_DARK = (76, 153, 0)
     VALID_LIGHT = (102, 204, 0)
     SQUARE_SIZE = 100
+    INFO_HEIGHT = 200
+    INFO_WIDTH = 800
     PIECE_NAMES = {'r': 'blackRook', 'n': 'blackKnight', 'b': 'blackBishop', 'q': 'blackQueen', 'k': 'blackKing',
                    'p': 'blackPawn',
                    'R': 'whiteRook', 'N': 'whiteKnight', 'B': 'whiteBishop', 'Q': 'whiteQueen', 'K': 'whiteKing',
@@ -36,6 +38,11 @@ class Client:
         self.target_x = -1
         self.target_y = -1
         self.moves = []
+        self.game_end = False
+        self.msg = ''
+        self.font = None
+        self.welcome_message_up = True
+        self.font_turn = None
 
     def load_pieces_imgs(self):
         piece_img = dict()
@@ -128,40 +135,59 @@ class Client:
             except Exception as e:
                 pass
 
+    def draw_info(self, screen, msg):
+        pg.draw.rect(screen, self.BLACK, (0, 300, self.INFO_WIDTH, self.INFO_HEIGHT))
+        text_surface = self.font.render(msg, True, self.WHITE)
+        text_rect = text_surface.get_rect(center=(400, 400))
+        screen.blit(text_surface, text_rect)
+
+    def draw_turn_info(self, screen):
+        pg.draw.rect(screen, self.BLACK, (0, 800, self.INFO_WIDTH, 50))
+        msg = 'White\'s turn' if self.board.turn == chess.WHITE else 'Black\'s turn'
+        text_surface = self.font_turn.render(msg, True, self.WHITE)
+        text_rect = text_surface.get_rect(center=(400, 825))
+        screen.blit(text_surface, text_rect)
+
     def run(self):
         pg.init()
-        pg.display.set_caption('Chess')
-        self.screen = pg.display.set_mode((800, 800))
+        pg.font.init()
+        self.font = pg.font.Font(pg.font.get_default_font(), 72)
+        self.font_turn = pg.font.Font(pg.font.get_default_font(), 30)
+        self.screen = pg.display.set_mode((800, 850))
         self.socket.connect((self.HOST, self.PORT))
         self.welcome_message = self.socket.recv(1024).decode('utf-8')
         self.color = chess.BLACK if 'Black' in self.welcome_message else chess.WHITE
+        color = 'White' if self.color == chess.WHITE else 'Black'
+        pg.display.set_caption(f'Chess - {color}')
         print(self.welcome_message)
         Thread(target=self.receive_board_update).start()
         while True:
             self.screen.fill(self.WHITE)
             self.draw_board(self.screen)
-            self.draw_pieces(self.screen)
             for event in pg.event.get():
-                if event.type == pg.MOUSEBUTTONDOWN:
-                    x, y = pg.mouse.get_pos()
-                    xx, yy = self.mouse_to_board(x, y)
-                    source_sq = self.board_to_square(xx, yy)
-                    source_piece = self.board.piece_at(source_sq)
-                    if source_piece is not None and source_piece.color == self.color and not self.piece_selected:
-                        self.piece_selected = True
-                        self.selected_x, self.selected_y = self.mouse_to_board(x, y)
-                        self.generate_moves()
-                    elif self.piece_selected:
-                        self.target_x, self.target_y = self.mouse_to_board(x, y)
-                        if not (self.selected_x == self.target_x and self.selected_y == self.target_y):
-                            target_sq = self.board_to_square(self.target_x, self.target_y)
-                            target_piece = self.board.piece_at(target_sq)
-                            if target_piece is not None and target_piece.color == self.color:
-                                self.selected_x, self.selected_y = self.target_x, self.target_y
-                                self.generate_moves()
-                            else:
-                                self.send_move(self.selected_x, self.selected_y, self.target_x, self.target_y)
-                                self.piece_selected = False
+                if event.type == pg.MOUSEBUTTONDOWN and not self.game_end:
+                    if self.welcome_message_up:
+                        self.welcome_message_up = False
+                    else:
+                        x, y = pg.mouse.get_pos()
+                        xx, yy = self.mouse_to_board(x, y)
+                        source_sq = self.board_to_square(xx, yy)
+                        source_piece = self.board.piece_at(source_sq)
+                        if source_piece is not None and source_piece.color == self.color and not self.piece_selected:
+                            self.piece_selected = True
+                            self.selected_x, self.selected_y = self.mouse_to_board(x, y)
+                            self.generate_moves()
+                        elif self.piece_selected:
+                            self.target_x, self.target_y = self.mouse_to_board(x, y)
+                            if not (self.selected_x == self.target_x and self.selected_y == self.target_y):
+                                target_sq = self.board_to_square(self.target_x, self.target_y)
+                                target_piece = self.board.piece_at(target_sq)
+                                if target_piece is not None and target_piece.color == self.color:
+                                    self.selected_x, self.selected_y = self.target_x, self.target_y
+                                    self.generate_moves()
+                                else:
+                                    self.send_move(self.selected_x, self.selected_y, self.target_x, self.target_y)
+                                    self.piece_selected = False
                 if event.type == pg.QUIT:
                     pg.quit()
                     sys.exit()
@@ -182,22 +208,19 @@ class Client:
                         pass
 
             if self.board.is_checkmate():
+                self.game_end = True
                 if self.board.turn == chess.BLACK:
-                    print("Black got checkmated")
+                    self.msg = 'Black got checkmated'
                 else:
-                    print("White got checkmated")
-                pg.quit()
-                sys.exit()
+                    self.msg = 'White got checkmated'
 
             if self.board.is_stalemate():
-                print("Stalemate")
-                pg.quit()
-                sys.exit()
+                self.game_end = True
+                self.msg = 'Stalemate'
 
             if self.board.is_insufficient_material():
-                print("Insufficient Material")
-                pg.quit()
-                sys.exit()
+                self.game_end = True
+                self.msg = 'Insufficient material'
 
             if self.board.is_check():
                 if self.board.turn == chess.WHITE:
@@ -208,6 +231,12 @@ class Client:
                              ((chess.square_file(king) * self.SQUARE_SIZE),
                               ((self.reverse_y(chess.square_rank(king)) - 1) * self.SQUARE_SIZE),
                               self.SQUARE_SIZE, self.SQUARE_SIZE))
+            self.draw_pieces(self.screen)
+            if self.game_end:
+                self.draw_info(self.screen, self.msg)
+            if self.welcome_message_up:
+                self.draw_info(self.screen, self.welcome_message)
+            self.draw_turn_info(self.screen)
             pg.display.update()
 
 
