@@ -35,6 +35,7 @@ class Client:
         self.piece_selected = False
         self.selected_x = -1
         self.selected_y = -1
+        self.selected_piece = None
         self.target_x = -1
         self.target_y = -1
         self.moves = []
@@ -43,6 +44,7 @@ class Client:
         self.font = None
         self.welcome_message_up = True
         self.font_turn = None
+        self.promotion_type = ''
         self.server_full = False
 
     def load_pieces_imgs(self):
@@ -65,9 +67,9 @@ class Client:
             self.draw_pieces(self.screen)
             pg.display.update()
 
-    def send_move(self, src_x, src_y, dst_x, dst_y):
-        print(src_x, src_y, dst_x, dst_y)
-        src = f'{self.x_to_name(src_x)}{self.reverse_y(src_y)}{self.x_to_name(dst_x)}{self.reverse_y(dst_y)}'
+    def send_move(self, src_x, src_y, dst_x, dst_y, promotion_piece):
+        print(src_x, src_y, dst_x, dst_y, promotion_piece)
+        src = f'{self.x_to_name(src_x)}{self.reverse_y(src_y)}{self.x_to_name(dst_x)}{self.reverse_y(dst_y)}{promotion_piece}'
         print('sending ' + src)
         self.socket.send(src.encode('utf-8'))
 
@@ -180,6 +182,7 @@ class Client:
                         if source_piece is not None and source_piece.color == self.color and not self.piece_selected:
                             self.piece_selected = True
                             self.selected_x, self.selected_y = self.mouse_to_board(x, y)
+                            self.selected_piece = source_piece
                             self.generate_moves()
                         elif self.piece_selected:
                             self.target_x, self.target_y = self.mouse_to_board(x, y)
@@ -190,7 +193,12 @@ class Client:
                                     self.selected_x, self.selected_y = self.target_x, self.target_y
                                     self.generate_moves()
                                 else:
-                                    self.send_move(self.selected_x, self.selected_y, self.target_x, self.target_y)
+                                    if (self.selected_piece == chess.Piece(chess.PAWN, chess.BLACK) and chess.square_rank(target_sq) == 0) or (self.selected_piece == chess.Piece(chess.PAWN, chess.WHITE) and (chess.square_rank(target_sq) == 7)):
+                                        self.promotion_type = 'q'
+                                    else:
+                                        self.promotion_type = ''
+                                    self.send_move(self.selected_x, self.selected_y, self.target_x, self.target_y,
+                                                   self.promotion_type)
                                     self.piece_selected = False
                 if event.type == pg.QUIT:
                     pg.quit()
@@ -201,7 +209,10 @@ class Client:
                                 self.selected_y * self.SQUARE_SIZE + (self.SQUARE_SIZE / 2)),
                                self.SQUARE_SIZE / 2, 5)
                 for move in self.moves:
-                    target = str(move)[-2:]
+                    if str(move).endswith('q'):
+                        target = str(move)[-3:-1]
+                    else:
+                        target = str(move)[-2:]
                     try:
                         target_sq = chess.parse_square(target)
                         pg.draw.rect(self.screen, self.VALID_LIGHT if (chess.square_file(target_sq) + chess.square_rank(target_sq)) % 2 == 0 else self.VALID_DARK,
