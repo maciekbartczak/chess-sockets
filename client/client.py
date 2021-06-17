@@ -59,10 +59,9 @@ class Client:
         return piece_img
 
     def receive_board_update(self):
-        global board
         while True:
             board_fen = self.socket.recv(1024).decode('utf-8')
-            self.board =  chess.variant.find_variant(str(self.variant))(board_fen)
+            self.board = chess.variant.find_variant(str(self.variant))(board_fen)
             print(f'\n{self.board}')
             self.screen.fill(self.GREY)
             self.draw_board(self.screen)
@@ -230,38 +229,6 @@ class Client:
             if outcome is not None:
                 self.game_end = True
                 self.msg = outcome.result()
-            # if self.board.is_variant_loss():
-            #     self.game_end = True
-            #     if self.board.turn == chess.BLACK:
-            #         self.msg = 'Black lost due to special variant'
-            #     else:
-            #         self.msg = 'White lost due to special variant'
-            #
-            # if self.board.is_variant_win():
-            #     self.game_end = True
-            #     if self.board.turn == chess.BLACK:
-            #         self.msg = 'White lost due to special variant'
-            #     else:
-            #         self.msg = 'Black lost due to special variant'
-            #
-            # if self.board.is_variant_draw():
-            #     self.game_end = True
-            #     self.msg = 'Draw due to special variant'
-            #
-            # if self.board.is_checkmate():
-            #     self.game_end = True
-            #     if self.board.turn == chess.BLACK:
-            #         self.msg = 'Black got checkmated'
-            #     else:
-            #         self.msg = 'White got checkmated'
-            #
-            # if self.board.is_stalemate():
-            #     self.game_end = True
-            #     self.msg = 'Stalemate'
-            #
-            # if self.board.is_insufficient_material():
-            #     self.game_end = True
-            #     self.msg = 'Insufficient material'
 
             if self.board.is_check():
                 if self.board.turn == chess.WHITE:
