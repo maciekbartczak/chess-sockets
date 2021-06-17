@@ -43,6 +43,7 @@ class Client:
         self.font = None
         self.welcome_message_up = True
         self.font_turn = None
+        self.server_full = False
 
     def load_pieces_imgs(self):
         piece_img = dict()
@@ -156,16 +157,19 @@ class Client:
         self.screen = pg.display.set_mode((800, 850))
         self.socket.connect((self.HOST, self.PORT))
         self.welcome_message = self.socket.recv(1024).decode('utf-8')
-        self.color = chess.BLACK if 'Black' in self.welcome_message else chess.WHITE
-        color = 'White' if self.color == chess.WHITE else 'Black'
-        pg.display.set_caption(f'Chess - {color}')
-        print(self.welcome_message)
-        Thread(target=self.receive_board_update).start()
+        if 'Server is full' in self.welcome_message:
+            self.server_full = True
+        else:
+            self.color = chess.BLACK if 'Black' in self.welcome_message else chess.WHITE
+            color = 'White' if self.color == chess.WHITE else 'Black'
+            pg.display.set_caption(f'Chess - {color}')
+            print(self.welcome_message)
+            Thread(target=self.receive_board_update).start()
         while True:
             self.screen.fill(self.WHITE)
             self.draw_board(self.screen)
             for event in pg.event.get():
-                if event.type == pg.MOUSEBUTTONDOWN and not self.game_end:
+                if event.type == pg.MOUSEBUTTONDOWN and not self.game_end and not self.server_full:
                     if self.welcome_message_up:
                         self.welcome_message_up = False
                     else:
